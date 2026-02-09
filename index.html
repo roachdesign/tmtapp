@@ -11,10 +11,7 @@
     
     <title>Calculadora TMT</title>
     
-    <!-- Manifest para PWA -->
     <link rel="manifest" href="manifest.json">
-    
-    <!-- Iconos para iOS -->
     <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect fill='%231e3c72' width='192' height='192' rx='40'/%3E%3Ctext x='96' y='130' font-size='100' text-anchor='middle' fill='white'%3E🏓%3C/text%3E%3C/svg%3E">
     
     <style>
@@ -334,6 +331,17 @@
             font-weight: 600;
         }
 
+        .puntaje-base-info {
+            background: #e8f5e9;
+            border: 1px solid #4caf50;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #2e7d32;
+        }
+
         .install-banner {
             background: #e3f2fd;
             border: 2px solid #2196f3;
@@ -368,11 +376,10 @@
     <div class="container">
         <div class="header">
             <h1>🏓 Calculadora TMT</h1>
-            <p>Tenis de mesa para todos</p>
+            <p>Tenemos de Mesa - Torneos</p>
         </div>
 
         <div class="content">
-            <!-- Banner de instalación -->
             <div id="install-banner" class="install-banner">
                 <div style="font-weight: 600; margin-bottom: 5px;">📲 Instalar App</div>
                 <div style="font-size: 0.9rem; color: #666; margin-bottom: 10px;">
@@ -386,7 +393,6 @@
                 </button>
             </div>
 
-            <!-- Pantalla 1: Inicio -->
             <div id="screen-inicio" class="screen active">
                 <div class="input-group">
                     <label for="puntaje-inicial">¿Cuál es tu puntaje actual?</label>
@@ -394,7 +400,7 @@
                 </div>
                 
                 <div class="info-text">
-                    Ingresa tu puntaje actual para comenzar el torneo. Luego iremos cargando cada partido.
+                    Ingresa tu puntaje actual para comenzar el torneo. Este puntaje se mantendrá fijo durante todo el torneo para calcular las diferencias correctamente.
                 </div>
 
                 <button class="btn btn-primary" onclick="iniciarTorneo()">
@@ -402,11 +408,14 @@
                 </button>
             </div>
 
-            <!-- Pantalla 2: Carga de Partidos -->
             <div id="screen-partidos" class="screen">
                 <div class="stats-card">
-                    <div class="stat-label">Tu Puntaje Inicial</div>
-                    <div class="stat-value" id="display-puntaje-actual">0</div>
+                    <div class="stat-label">Puntaje Base del Torneo</div>
+                    <div class="stat-value" id="display-puntaje-base">0</div>
+                </div>
+
+                <div class="puntaje-base-info">
+                    ℹ️ Este puntaje no cambia durante el torneo. Todas las diferencias se calculan respecto a este valor.
                 </div>
 
                 <div class="partido-counter">
@@ -414,7 +423,6 @@
                 </div>
 
                 <div class="partidos-lista" id="lista-partidos">
-                    <!-- Aquí se agregan los partidos -->
                 </div>
 
                 <div id="formulario-partido">
@@ -443,7 +451,6 @@
                 </button>
             </div>
 
-            <!-- Pantalla 3: Resultados -->
             <div id="screen-resultados" class="screen">
                 <div class="final-stats">
                     <h2>Resultado Final</h2>
@@ -492,7 +499,6 @@
                 </div>
 
                 <div class="partidos-lista" id="resumen-partidos" style="margin: 20px 0;">
-                    <!-- Resumen de partidos -->
                 </div>
 
                 <button class="btn btn-primary" onclick="nuevoTorneo()">
@@ -503,15 +509,13 @@
     </div>
 
     <script>
-        // Variables globales
         let puntajeInicial = 0;
-        let puntajeActual = 0;
+        let puntajeBaseTorneo = 0;
         let partidos = [];
         let partidosMinimosParaFinalizar = 3;
         let usandoCoeficiente = false;
         let deferredPrompt = null;
 
-        // Tabla de equivalencias según la imagen
         const tablaTMT = [
             [750, 9999, 1, 28],
             [500, 749, 2, 26],
@@ -525,7 +529,6 @@
             [0, 24, 10, 10]
         ];
 
-        // Service Worker Registration
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('sw.js')
@@ -538,7 +541,6 @@
             });
         }
 
-        // Instalación PWA
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
@@ -572,10 +574,10 @@
             }
             
             puntajeInicial = valor;
-            puntajeActual = valor;
+            puntajeBaseTorneo = valor;
             usandoCoeficiente = false;
             
-            document.getElementById('display-puntaje-actual').textContent = puntajeActual;
+            document.getElementById('display-puntaje-base').textContent = puntajeBaseTorneo;
             cambiarPantalla('screen-partidos');
         }
 
@@ -591,23 +593,19 @@
             let fila = tablaTMT.find(r => diferencia >= r[0] && diferencia <= r[1]);
             if (!fila) fila = tablaTMT[tablaTMT.length - 1];
             
-            let puntos = 0;
-            
             if (resultado === 'victoria') {
                 if (soyMayor) {
-                    puntos = fila[2];
+                    return fila[2];
                 } else {
-                    puntos = fila[3];
+                    return fila[3];
                 }
             } else {
                 if (soyMayor) {
-                    puntos = -fila[3];
+                    return -fila[3];
                 } else {
-                    puntos = -fila[2];
+                    return -fila[2];
                 }
             }
-            
-            return puntos;
         }
 
         function aplicarCoeficienteAPartido(puntos) {
@@ -624,11 +622,11 @@
                 return;
             }
             
-            const puntosBase = calcularPuntos(puntajeActual, puntajeRival, resultado);
+            const puntosBase = calcularPuntos(puntajeBaseTorneo, puntajeRival, resultado);
             
             const partido = {
                 id: partidos.length + 1,
-                miPuntaje: puntajeActual,
+                miPuntaje: puntajeBaseTorneo,
                 rivalPuntaje: puntajeRival,
                 resultado: resultado,
                 puntosBase: puntosBase,
@@ -636,9 +634,9 @@
             };
             
             partidos.push(partido);
-            puntajeActual += puntosBase;
             
-            document.getElementById('display-puntaje-actual').textContent = puntajeActual;
+            const puntajeAcumulado = partidos.reduce((sum, p) => sum + p.puntosBase, 0);
+            document.getElementById('display-puntaje-base').textContent = puntajeInicial + puntajeAcumulado;
             document.getElementById('contador-partidos').textContent = partidos.length;
             
             renderizarPartidos();
@@ -662,13 +660,14 @@
                 const esVictoria = p.resultado === 'victoria';
                 const clasePuntos = p.puntos > 0 ? 'puntos-positivos' : 'puntos-negativos';
                 const signo = p.puntos > 0 ? '+' : '';
+                const diferencia = Math.abs(p.miPuntaje - p.rivalPuntaje);
                 
                 div.innerHTML = `
                     <div class="partido-info">
                         <div class="partido-rival">Partido ${p.id} vs ${p.rivalPuntaje} pts</div>
                         <div class="partido-detalle">
                             ${esVictoria ? '🏆 Victoria' : '💔 Derrota'} | 
-                            Tú: ${p.miPuntaje} pts
+                            Dif: ${diferencia} pts
                         </div>
                     </div>
                     <div class="partido-puntos ${clasePuntos}">
@@ -731,6 +730,7 @@
                 
                 const puntosMostrar = usandoCoeficiente ? aplicarCoeficienteAPartido(p.puntosBase) : p.puntosBase;
                 const signoMostrar = puntosMostrar > 0 ? '+' : '';
+                const diferencia = Math.abs(p.miPuntaje - p.rivalPuntaje);
                 
                 const item = document.createElement('div');
                 item.className = 'partido-item';
@@ -743,7 +743,7 @@
                 
                 item.innerHTML = `
                     <div class="partido-info">
-                        <div class="partido-rival">vs ${p.rivalPuntaje} pts</div>
+                        <div class="partido-rival">vs ${p.rivalPuntaje} pts (dif: ${diferencia})</div>
                         <div class="partido-detalle">${esVictoria ? 'Victoria' : 'Derrota'}</div>
                         ${detalleExtra}
                     </div>
@@ -782,7 +782,7 @@
 
         function resetearVariables() {
             puntajeInicial = 0;
-            puntajeActual = 0;
+            puntajeBaseTorneo = 0;
             partidos = [];
             usandoCoeficiente = false;
             
