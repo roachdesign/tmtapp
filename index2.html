@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1e3c72">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="TMT Calc">
+    <meta name="description" content="Calculadora de puntos para torneos de Tenis de Mesa">
+    
+    <title>Calculadora TMT</title>
+    
+    <!-- Manifest para PWA -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Iconos para iOS -->
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect fill='%231e3c72' width='192' height='192' rx='40'/%3E%3Ctext x='96' y='130' font-size='100' text-anchor='middle' fill='white'%3E🏓%3C/text%3E%3C/svg%3E">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+
+        .content {
+            padding: 25px;
+        }
+
+        .screen {
+            display: none;
+        }
+
+        .screen.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+            font-size: 0.95rem;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            transition: all 0.3s;
+            text-align: center;
+            -webkit-appearance: none;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #667eea;
+            transform: scale(1.02);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            -webkit-appearance: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(17, 153, 142, 0.4);
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(17, 153, 142, 0.6);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(235, 51, 73, 0.4);
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(235, 51, 73, 0.6);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(240, 147, 251, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #666;
+        }
+
+        .resultado-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .partidos-lista {
+            margin: 20px 0;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .partido-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .partido-info {
+            flex: 1;
+        }
+
+        .partido-rival {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 3px;
+        }
+
+        .partido-detalle {
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .partido-puntos {
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+
+        .puntos-positivos {
+            color: #11998e;
+        }
+
+        .puntos-negativos {
+            color: #eb3349;
+        }
+
+        .stats-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-box {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .coeficiente-box {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            padding: 15px;
+            border-radius: 12px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .final-stats {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .final-stats h2 {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            opacity: 0.9;
+        }
+
+        .final-number {
+            font-size: 3rem;
+            font-weight: 700;
+            margin: 10px 0;
+        }
+
+        .final-detail {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+            font-size: 0.9rem;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .info-text {
+            text-align: center;
+            color: #666;
+            margin: 15px 0;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .partido-counter {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #e3f2fd;
+            border-radius: 10px;
+            color: #1976d2;
+            font-weight: 600;
+        }
+
+        .install-banner {
+            background: #e3f2fd;
+            border: 2px solid #2196f3;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            text-align: center;
+            display: none;
+        }
+
+        .install-banner.show {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 1.3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏓 Calculadora TMT</h1>
+            <p>Tenis de mesa para todos</p>
+        </div>
+
+        <div class="content">
+            <!-- Banner de instalación -->
+            <div id="install-banner" class="install-banner">
+                <div style="font-weight: 600; margin-bottom: 5px;">📲 Instalar App</div>
+                <div style="font-size: 0.9rem; color: #666; margin-bottom: 10px;">
+                    Agregá esta app a tu pantalla de inicio para usarla sin internet
+                </div>
+                <button class="btn btn-primary" onclick="instalarApp()" style="padding: 10px; font-size: 0.9rem;">
+                    Instalar Ahora
+                </button>
+                <button onclick="cerrarBanner()" style="background: none; border: none; color: #666; margin-top: 5px; font-size: 0.8rem;">
+                    Ahora no
+                </button>
+            </div>
+
+            <!-- Pantalla 1: Inicio -->
+            <div id="screen-inicio" class="screen active">
+                <div class="input-group">
+                    <label for="puntaje-inicial">¿Cuál es tu puntaje actual?</label>
+                    <input type="number" id="puntaje-inicial" placeholder="Ej: 1500" min="0" max="3000">
+                </div>
+                
+                <div class="info-text">
+                    Ingresa tu puntaje actual para comenzar el torneo. Luego iremos cargando cada partido.
+                </div>
+
+                <button class="btn btn-primary" onclick="iniciarTorneo()">
+                    Comenzar Torneo 🚀
+                </button>
+            </div>
+
+            <!-- Pantalla 2: Carga de Partidos -->
+            <div id="screen-partidos" class="screen">
+                <div class="stats-card">
+                    <div class="stat-label">Tu Puntaje Inicial</div>
+                    <div class="stat-value" id="display-puntaje-actual">0</div>
+                </div>
+
+                <div class="partido-counter">
+                    Partidos jugados: <span id="contador-partidos">0</span>
+                </div>
+
+                <div class="partidos-lista" id="lista-partidos">
+                    <!-- Aquí se agregan los partidos -->
+                </div>
+
+                <div id="formulario-partido">
+                    <div class="input-group">
+                        <label for="puntaje-rival">Puntaje del rival</label>
+                        <input type="number" id="puntaje-rival" placeholder="Ej: 1450" min="0" max="3000">
+                    </div>
+
+                    <label style="margin-bottom: 10px; display: block;">Resultado:</label>
+                    <div class="resultado-buttons">
+                        <button class="btn btn-success" onclick="agregarPartido('victoria')">
+                            ✅ Victoria
+                        </button>
+                        <button class="btn btn-danger" onclick="agregarPartido('derrota')">
+                            ❌ Derrota
+                        </button>
+                    </div>
+                </div>
+
+                <button id="btn-finalizar" class="btn btn-warning hidden" onclick="finalizarTorneo()">
+                    🏆 Finalizar Torneo
+                </button>
+
+                <button class="btn btn-secondary" onclick="reiniciarTodo()" style="margin-top: 10px;">
+                    Cancelar Torneo
+                </button>
+            </div>
+
+            <!-- Pantalla 3: Resultados -->
+            <div id="screen-resultados" class="screen">
+                <div class="final-stats">
+                    <h2>Resultado Final</h2>
+                    <div class="final-number" id="variacion-total">+0</div>
+                    <div>puntos de variación</div>
+                    
+                    <div class="final-detail">
+                        <div>
+                            <div style="font-size: 1.5rem; margin-bottom: 5px;">📈</div>
+                            <div>Ganados</div>
+                            <div style="font-size: 1.2rem; font-weight: 600;" id="total-ganados">0</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 1.5rem; margin-bottom: 5px;">📉</div>
+                            <div>Perdidos</div>
+                            <div style="font-size: 1.2rem; font-weight: 600;" id="total-perdidos">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stats-grid" style="margin-bottom: 20px;">
+                    <div class="stat-box">
+                        <div class="stat-label">Puntaje Inicial</div>
+                        <div class="stat-value" id="res-inicial">0</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Puntaje Final</div>
+                        <div class="stat-value" id="res-final">0</div>
+                    </div>
+                </div>
+
+                <div class="coeficiente-box">
+                    <div style="font-weight: 600; margin-bottom: 5px;">⚡ Coeficiente 1.5x</div>
+                    <div style="font-size: 0.9rem; color: #666; margin-bottom: 10px;">
+                        ¿Aplicar coeficiente 1.5 solo a los puntos ganados?
+                    </div>
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" id="check-coeficiente" onchange="aplicarCoeficiente()">
+                        <label for="check-coeficiente" style="margin: 0; cursor: pointer;">
+                            Aplicar 1.5 a victorias (redondea hacia arriba)
+                        </label>
+                    </div>
+                    <div id="coeficiente-aviso" style="margin-top: 10px; font-size: 0.85rem; color: #856404; display: none;">
+                        Solo las victorias se multiplican por 1.5
+                    </div>
+                </div>
+
+                <div class="partidos-lista" id="resumen-partidos" style="margin: 20px 0;">
+                    <!-- Resumen de partidos -->
+                </div>
+
+                <button class="btn btn-primary" onclick="nuevoTorneo()">
+                    Nuevo Torneo 🔄
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales
+        let puntajeInicial = 0;
+        let puntajeActual = 0;
+        let partidos = [];
+        let partidosMinimosParaFinalizar = 3;
+        let usandoCoeficiente = false;
+        let deferredPrompt = null;
+
+        // Tabla de equivalencias según la imagen
+        const tablaTMT = [
+            [750, 9999, 1, 28],
+            [500, 749, 2, 26],
+            [400, 499, 3, 24],
+            [300, 399, 4, 22],
+            [200, 299, 5, 20],
+            [150, 199, 6, 18],
+            [100, 149, 7, 16],
+            [50, 99, 8, 14],
+            [25, 49, 9, 12],
+            [0, 24, 10, 10]
+        ];
+
+        // Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then((registration) => {
+                        console.log('SW registrado:', registration);
+                    })
+                    .catch((error) => {
+                        console.log('SW error:', error);
+                    });
+            });
+        }
+
+        // Instalación PWA
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('install-banner').classList.add('show');
+        });
+
+        function instalarApp() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('Usuario instaló la app');
+                    }
+                    deferredPrompt = null;
+                    document.getElementById('install-banner').classList.remove('show');
+                });
+            }
+        }
+
+        function cerrarBanner() {
+            document.getElementById('install-banner').classList.remove('show');
+        }
+
+        function iniciarTorneo() {
+            const input = document.getElementById('puntaje-inicial');
+            const valor = parseInt(input.value);
+            
+            if (!valor || valor < 0) {
+                alert('Por favor ingresa un puntaje válido');
+                return;
+            }
+            
+            puntajeInicial = valor;
+            puntajeActual = valor;
+            usandoCoeficiente = false;
+            
+            document.getElementById('display-puntaje-actual').textContent = puntajeActual;
+            cambiarPantalla('screen-partidos');
+        }
+
+        function cambiarPantalla(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        function calcularPuntos(miPuntaje, rivalPuntaje, resultado) {
+            const diferencia = Math.abs(miPuntaje - rivalPuntaje);
+            const soyMayor = miPuntaje > rivalPuntaje;
+            
+            let fila = tablaTMT.find(r => diferencia >= r[0] && diferencia <= r[1]);
+            if (!fila) fila = tablaTMT[tablaTMT.length - 1];
+            
+            let puntos = 0;
+            
+            if (resultado === 'victoria') {
+                if (soyMayor) {
+                    puntos = fila[2];
+                } else {
+                    puntos = fila[3];
+                }
+            } else {
+                if (soyMayor) {
+                    puntos = -fila[3];
+                } else {
+                    puntos = -fila[2];
+                }
+            }
+            
+            return puntos;
+        }
+
+        function aplicarCoeficienteAPartido(puntos) {
+            if (!usandoCoeficiente || puntos <= 0) return puntos;
+            return Math.ceil(puntos * 1.5);
+        }
+
+        function agregarPartido(resultado) {
+            const inputRival = document.getElementById('puntaje-rival');
+            const puntajeRival = parseInt(inputRival.value);
+            
+            if (!puntajeRival || puntajeRival < 0) {
+                alert('Por favor ingresa el puntaje del rival');
+                return;
+            }
+            
+            const puntosBase = calcularPuntos(puntajeActual, puntajeRival, resultado);
+            
+            const partido = {
+                id: partidos.length + 1,
+                miPuntaje: puntajeActual,
+                rivalPuntaje: puntajeRival,
+                resultado: resultado,
+                puntosBase: puntosBase,
+                puntos: puntosBase
+            };
+            
+            partidos.push(partido);
+            puntajeActual += puntosBase;
+            
+            document.getElementById('display-puntaje-actual').textContent = puntajeActual;
+            document.getElementById('contador-partidos').textContent = partidos.length;
+            
+            renderizarPartidos();
+            
+            inputRival.value = '';
+            inputRival.focus();
+            
+            if (partidos.length >= partidosMinimosParaFinalizar) {
+                document.getElementById('btn-finalizar').classList.remove('hidden');
+            }
+        }
+
+        function renderizarPartidos() {
+            const contenedor = document.getElementById('lista-partidos');
+            contenedor.innerHTML = '';
+            
+            partidos.slice().reverse().forEach((p) => {
+                const div = document.createElement('div');
+                div.className = 'partido-item';
+                
+                const esVictoria = p.resultado === 'victoria';
+                const clasePuntos = p.puntos > 0 ? 'puntos-positivos' : 'puntos-negativos';
+                const signo = p.puntos > 0 ? '+' : '';
+                
+                div.innerHTML = `
+                    <div class="partido-info">
+                        <div class="partido-rival">Partido ${p.id} vs ${p.rivalPuntaje} pts</div>
+                        <div class="partido-detalle">
+                            ${esVictoria ? '🏆 Victoria' : '💔 Derrota'} | 
+                            Tú: ${p.miPuntaje} pts
+                        </div>
+                    </div>
+                    <div class="partido-puntos ${clasePuntos}">
+                        ${signo}${p.puntos}
+                    </div>
+                `;
+                
+                contenedor.appendChild(div);
+            });
+        }
+
+        function calcularTotalConCoeficiente() {
+            let total = 0;
+            partidos.forEach(p => {
+                total += aplicarCoeficienteAPartido(p.puntosBase);
+            });
+            return total;
+        }
+
+        function finalizarTorneo() {
+            usandoCoeficiente = false;
+            document.getElementById('check-coeficiente').checked = false;
+            document.getElementById('coeficiente-aviso').style.display = 'none';
+            
+            mostrarResultados();
+            cambiarPantalla('screen-resultados');
+        }
+
+        function mostrarResultados() {
+            const totalBase = partidos.reduce((sum, p) => sum + p.puntosBase, 0);
+            const totalGanadosBase = partidos.filter(p => p.puntosBase > 0).reduce((sum, p) => sum + p.puntosBase, 0);
+            const totalPerdidosBase = partidos.filter(p => p.puntosBase < 0).reduce((sum, p) => sum + p.puntosBase, 0);
+            
+            let variacionMostrar = totalBase;
+            let ganadosMostrar = totalGanadosBase;
+            let perdidosMostrar = totalPerdidosBase;
+            
+            if (usandoCoeficiente) {
+                ganadosMostrar = partidos
+                    .filter(p => p.puntosBase > 0)
+                    .reduce((sum, p) => sum + aplicarCoeficienteAPartido(p.puntosBase), 0);
+                perdidosMostrar = totalPerdidosBase;
+                variacionMostrar = ganadosMostrar + perdidosMostrar;
+            }
+            
+            document.getElementById('variacion-total').textContent = (variacionMostrar > 0 ? '+' : '') + variacionMostrar;
+            document.getElementById('variacion-total').style.color = variacionMostrar >= 0 ? '#38ef7d' : '#f45c43';
+            document.getElementById('total-ganados').textContent = '+' + ganadosMostrar;
+            document.getElementById('total-perdidos').textContent = perdidosMostrar;
+            document.getElementById('res-inicial').textContent = puntajeInicial;
+            document.getElementById('res-final').textContent = puntajeInicial + variacionMostrar;
+            
+            const resumenDiv = document.getElementById('resumen-partidos');
+            resumenDiv.innerHTML = '<h3 style="margin-bottom: 15px; color: #333;">Detalle de Partidos:</h3>';
+            
+            partidos.forEach(p => {
+                const esVictoria = p.resultado === 'victoria';
+                const clasePuntos = p.puntosBase > 0 ? 'puntos-positivos' : 'puntos-negativos';
+                const signo = p.puntosBase > 0 ? '+' : '';
+                
+                const puntosMostrar = usandoCoeficiente ? aplicarCoeficienteAPartido(p.puntosBase) : p.puntosBase;
+                const signoMostrar = puntosMostrar > 0 ? '+' : '';
+                
+                const item = document.createElement('div');
+                item.className = 'partido-item';
+                item.style.background = '#f8f9fa';
+                
+                let detalleExtra = '';
+                if (usandoCoeficiente && p.puntosBase > 0 && p.puntosBase !== puntosMostrar) {
+                    detalleExtra = `<div style="font-size: 0.75rem; color: #999; margin-top: 2px;">${signo}${p.puntosBase} × 1.5 = ${signoMostrar}${puntosMostrar}</div>`;
+                }
+                
+                item.innerHTML = `
+                    <div class="partido-info">
+                        <div class="partido-rival">vs ${p.rivalPuntaje} pts</div>
+                        <div class="partido-detalle">${esVictoria ? 'Victoria' : 'Derrota'}</div>
+                        ${detalleExtra}
+                    </div>
+                    <div class="partido-puntos ${clasePuntos}">${signoMostrar}${puntosMostrar}</div>
+                `;
+                resumenDiv.appendChild(item);
+            });
+        }
+
+        function aplicarCoeficiente() {
+            const checkbox = document.getElementById('check-coeficiente');
+            const aviso = document.getElementById('coeficiente-aviso');
+            
+            usandoCoeficiente = checkbox.checked;
+            
+            if (usandoCoeficiente) {
+                aviso.style.display = 'block';
+            } else {
+                aviso.style.display = 'none';
+            }
+            
+            mostrarResultados();
+        }
+
+        function reiniciarTodo() {
+            if (confirm('¿Estás seguro de que quieres cancelar este torneo?')) {
+                resetearVariables();
+                cambiarPantalla('screen-inicio');
+            }
+        }
+
+        function nuevoTorneo() {
+            resetearVariables();
+            cambiarPantalla('screen-inicio');
+        }
+
+        function resetearVariables() {
+            puntajeInicial = 0;
+            puntajeActual = 0;
+            partidos = [];
+            usandoCoeficiente = false;
+            
+            document.getElementById('puntaje-inicial').value = '';
+            document.getElementById('puntaje-rival').value = '';
+            document.getElementById('lista-partidos').innerHTML = '';
+            document.getElementById('contador-partidos').textContent = '0';
+            document.getElementById('btn-finalizar').classList.add('hidden');
+            document.getElementById('check-coeficiente').checked = false;
+            document.getElementById('coeficiente-aviso').style.display = 'none';
+        }
+
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const activeElement = document.activeElement;
+                if (activeElement.id === 'puntaje-inicial') {
+                    iniciarTorneo();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
