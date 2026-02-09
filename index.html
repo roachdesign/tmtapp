@@ -299,10 +299,6 @@
             display: none !important;
         }
 
-        .fade-in {
-            animation: fadeIn 0.5s ease;
-        }
-
         .info-text {
             text-align: center;
             color: #666;
@@ -340,7 +336,7 @@
     <div class="container">
         <div class="header">
             <h1>🏓 Calculadora TMT</h1>
-            <p>Torneos de tenis de mesa</p>
+            <p>Tenemos de Mesa - Torneos</p>
         </div>
 
         <div class="content">
@@ -436,16 +432,16 @@
                 <div class="coeficiente-box">
                     <div style="font-weight: 600; margin-bottom: 5px;">⚡ Coeficiente 1.5x</div>
                     <div style="font-size: 0.9rem; color: #666; margin-bottom: 10px;">
-                        ¿Aplicar coeficiente especial de 1.5?
+                        ¿Aplicar coeficiente especial de 1.5 a cada partido?
                     </div>
                     <div class="checkbox-wrapper">
                         <input type="checkbox" id="check-coeficiente" onchange="aplicarCoeficiente()">
                         <label for="check-coeficiente" style="margin: 0; cursor: pointer;">
-                            Aplicar multiplicador 1.5
+                            Aplicar multiplicador 1.5 (redondea hacia arriba)
                         </label>
                     </div>
-                    <div id="coeficiente-resultado" style="margin-top: 10px; font-weight: 600; color: #856404; display: none;">
-                        Variación con coeficiente: <span id="variacion-coef">0</span>
+                    <div id="coeficiente-aviso" style="margin-top: 10px; font-size: 0.85rem; color: #856404; display: none;">
+                        Cada partido se multiplica por 1.5 y se redondea hacia arriba
                     </div>
                 </div>
 
@@ -466,6 +462,7 @@
         let puntajeActual = 0;
         let partidos = [];
         let partidosMinimosParaFinalizar = 3;
+        let usandoCoeficiente = false;
 
         // Tabla de equivalencias según la imagen
         // [diferencia minima, diferencia maxima, puntos si gana mayor, puntos si gana menor]
@@ -493,6 +490,7 @@
             
             puntajeInicial = valor;
             puntajeActual = valor;
+            usandoCoeficiente = false;
             
             document.getElementById('display-puntaje-actual').textContent = puntajeActual;
             cambiarPantalla('screen-partidos');
@@ -532,6 +530,15 @@
             return puntos;
         }
 
+        // Función para aplicar coeficiente 1.5 con redondeo hacia arriba
+        function aplicarCoeficienteAPartido(puntos) {
+            if (!usandoCoeficiente) return puntos;
+            
+            // Multiplicar por 1.5 y redondear hacia arriba (ceiling)
+            const resultado = puntos * 1.5;
+            return Math.ceil(resultado);
+        }
+
         function agregarPartido(resultado) {
             const inputRival = document.getElementById('puntaje-rival');
             const puntajeRival = parseInt(inputRival.value);
@@ -541,18 +548,19 @@
                 return;
             }
             
-            const puntos = calcularPuntos(puntajeActual, puntajeRival, resultado);
+            const puntosBase = calcularPuntos(puntajeActual, puntajeRival, resultado);
             
             const partido = {
                 id: partidos.length + 1,
                 miPuntaje: puntajeActual,
                 rivalPuntaje: puntajeRival,
                 resultado: resultado,
-                puntos: puntos
+                puntosBase: puntosBase,  // Puntos originales sin coeficiente
+                puntos: puntosBase       // Puntos que se aplican (con o sin coeficiente)
             };
             
             partidos.push(partido);
-            puntajeActual += puntos;
+            puntajeActual += puntosBase;  // El puntaje actual se calcula siempre sin coeficiente para la próxima comparación
             
             // Actualizar UI
             document.getElementById('display-puntaje-actual').textContent = puntajeActual;
@@ -599,61 +607,101 @@
             });
         }
 
+        function calcularTotalConCoeficiente() {
+            let total = 0;
+            partidos.forEach(p => {
+                total += aplicarCoeficienteAPartido(p.puntosBase);
+            });
+            return total;
+        }
+
         function finalizarTorneo() {
-            const totalGanados = partidos.filter(p => p.puntos > 0).reduce((sum, p) => sum + p.puntos, 0);
-            const totalPerdidos = partidos.filter(p => p.puntos < 0).reduce((sum, p) => sum + p.puntos, 0);
-            const variacion = puntajeActual - puntajeInicial;
+            usandoCoeficiente = false;
+            document.getElementById('check-coeficiente').checked = false;
+            document.getElementById('coeficiente-aviso').style.display = 'none';
             
-            document.getElementById('variacion-total').textContent = (variacion > 0 ? '+' : '') + variacion;
-            document.getElementById('variacion-total').style.color = variacion >= 0 ? '#38ef7d' : '#f45c43';
-            document.getElementById('total-ganados').textContent = '+' + totalGanados;
-            document.getElementById('total-perdidos').textContent = totalPerdidos;
+            mostrarResultados();
+            cambiarPantalla('screen-resultados');
+        }
+
+        function mostrarResultados() {
+            // Calcular totales base (sin coeficiente)
+            const totalBase = partidos.reduce((sum, p) => sum + p.puntosBase, 0);
+            const totalGanadosBase = partidos.filter(p => p.puntosBase > 0).reduce((sum, p) => sum + p.puntosBase, 0);
+            const totalPerdidosBase = partidos.filter(p => p.puntosBase < 0).reduce((sum, p) => sum + p.puntosBase, 0);
+            
+            // Si está activado el coeficiente, recalcular
+            let variacionMostrar = totalBase;
+            let ganadosMostrar = totalGanadosBase;
+            let perdidosMostrar = totalPerdidosBase;
+            
+            if (usandoCoeficiente) {
+                variacionMostrar = calcularTotalConCoeficiente();
+                // Para ganados y perdidos con coeficiente, calculamos individualmente
+                ganadosMostrar = partidos
+                    .filter(p => p.puntosBase > 0)
+                    .reduce((sum, p) => sum + aplicarCoeficienteAPartido(p.puntosBase), 0);
+                perdidosMostrar = partidos
+                    .filter(p => p.puntosBase < 0)
+                    .reduce((sum, p) => sum + aplicarCoeficienteAPartido(p.puntosBase), 0);
+            }
+            
+            document.getElementById('variacion-total').textContent = (variacionMostrar > 0 ? '+' : '') + variacionMostrar;
+            document.getElementById('variacion-total').style.color = variacionMostrar >= 0 ? '#38ef7d' : '#f45c43';
+            document.getElementById('total-ganados').textContent = '+' + ganadosMostrar;
+            document.getElementById('total-perdidos').textContent = perdidosMostrar;
             document.getElementById('res-inicial').textContent = puntajeInicial;
-            document.getElementById('res-final').textContent = puntajeActual;
+            document.getElementById('res-final').textContent = puntajeInicial + variacionMostrar;
             
-            // Renderizar resumen de partidos en resultados
+            // Renderizar resumen de partidos
             const resumenDiv = document.getElementById('resumen-partidos');
             resumenDiv.innerHTML = '<h3 style="margin-bottom: 15px; color: #333;">Detalle de Partidos:</h3>';
             
             partidos.forEach(p => {
                 const esVictoria = p.resultado === 'victoria';
-                const clasePuntos = p.puntos > 0 ? 'puntos-positivos' : 'puntos-negativos';
-                const signo = p.puntos > 0 ? '+' : '';
+                const clasePuntos = p.puntosBase > 0 ? 'puntos-positivos' : 'puntos-negativos';
+                const signo = p.puntosBase > 0 ? '+' : '';
+                
+                // Calcular puntos a mostrar (con o sin coeficiente)
+                const puntosMostrar = usandoCoeficiente ? aplicarCoeficienteAPartido(p.puntosBase) : p.puntosBase;
+                const signoMostrar = puntosMostrar > 0 ? '+' : '';
                 
                 const item = document.createElement('div');
                 item.className = 'partido-item';
                 item.style.background = '#f8f9fa';
+                
+                // Si hay coeficiente, mostramos el cálculo
+                let detalleExtra = '';
+                if (usandoCoeficiente && p.puntosBase !== puntosMostrar) {
+                    detalleExtra = `<div style="font-size: 0.75rem; color: #999; margin-top: 2px;">${signo}${p.puntosBase} × 1.5 = ${signoMostrar}${puntosMostrar}</div>`;
+                }
+                
                 item.innerHTML = `
                     <div class="partido-info">
                         <div class="partido-rival">vs ${p.rivalPuntaje} pts</div>
                         <div class="partido-detalle">${esVictoria ? 'Victoria' : 'Derrota'}</div>
+                        ${detalleExtra}
                     </div>
-                    <div class="partido-puntos ${clasePuntos}">${signo}${p.puntos}</div>
+                    <div class="partido-puntos ${clasePuntos}">${signoMostrar}${puntosMostrar}</div>
                 `;
                 resumenDiv.appendChild(item);
             });
-            
-            cambiarPantalla('screen-resultados');
         }
 
         function aplicarCoeficiente() {
             const checkbox = document.getElementById('check-coeficiente');
-            const resultadoDiv = document.getElementById('coeficiente-resultado');
-            const variacionSpan = document.getElementById('variacion-coef');
+            const aviso = document.getElementById('coeficiente-aviso');
             
-            const variacionBase = puntajeActual - puntajeInicial;
+            usandoCoeficiente = checkbox.checked;
             
-            if (checkbox.checked) {
-                const variacionCoef = Math.round(variacionBase * 1.5);
-                variacionSpan.textContent = (variacionCoef > 0 ? '+' : '') + variacionCoef;
-                resultadoDiv.style.display = 'block';
-                
-                // Actualizar número principal también
-                document.getElementById('variacion-total').textContent = (variacionCoef > 0 ? '+' : '') + variacionCoef;
+            if (usandoCoeficiente) {
+                aviso.style.display = 'block';
             } else {
-                resultadoDiv.style.display = 'none';
-                document.getElementById('variacion-total').textContent = (variacionBase > 0 ? '+' : '') + variacionBase;
+                aviso.style.display = 'none';
             }
+            
+            // Actualizar resultados inmediatamente
+            mostrarResultados();
         }
 
         function reiniciarTodo() {
@@ -672,6 +720,7 @@
             puntajeInicial = 0;
             puntajeActual = 0;
             partidos = [];
+            usandoCoeficiente = false;
             
             document.getElementById('puntaje-inicial').value = '';
             document.getElementById('puntaje-rival').value = '';
@@ -679,7 +728,7 @@
             document.getElementById('contador-partidos').textContent = '0';
             document.getElementById('btn-finalizar').classList.add('hidden');
             document.getElementById('check-coeficiente').checked = false;
-            document.getElementById('coeficiente-resultado').style.display = 'none';
+            document.getElementById('coeficiente-aviso').style.display = 'none';
         }
 
         // Prevenir envío de formulario con Enter en inputs
@@ -695,5 +744,4 @@
         });
     </script>
 </body>
-
 </html>
