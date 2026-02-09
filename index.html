@@ -659,6 +659,19 @@
             document.getElementById('install-banner').classList.remove('show');
         }
 
+        // Función para evaluar XPath y obtener el elemento
+        function getElementByXPath(xpath, context) {
+            const doc = context || document;
+            const result = doc.evaluate(
+                xpath,
+                doc,
+                null,
+                XPathResult.FIRST_ORDERED_NODE_TYPE,
+                null
+            );
+            return result.singleNodeValue;
+        }
+
         function extraerDatosDelHTML(html) {
             const parser = new DOMParser();
             const doc = parser.parseFromString(html, 'text/html');
@@ -666,35 +679,55 @@
             let nombre = null;
             let puntaje = null;
             
-            // MÉTODO 1: Buscar el nombre en títulos
-            const titulos = doc.querySelectorAll('h1, h2, h3, title');
-            for (let titulo of titulos) {
-                const texto = titulo.textContent.trim();
-                if (texto && texto.length > 3 && 
-                    !texto.includes('Tenis de Mesa') && 
-                    !texto.includes('TMT') &&
-                    !texto.includes('Ficha') &&
-                    !texto.toLowerCase().includes('jugador')) {
-                    nombre = texto;
-                    break;
+            // MÉTODO 1: XPath específico para el nombre (el que me pasaste)
+            // /html/body/table/tbody/tr/td/div/table/tbody/tr/td/table/tbody/tr[3]/td/table/tbody/tr/td[2]/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr/td/div/table/tbody/tr[3]/td/table/tbody/tr[1]/td/table/tbody/tr[1]/td/table/tbody/tr/td[2]
+            try {
+                const xpathNombre = '/html/body/table/tbody/tr/td/div/table/tbody/tr/td/table/tbody/tr[3]/td/table/tbody/tr/td[2]/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr/td/div/table/tbody/tr[3]/td/table/tbody/tr[1]/td/table/tbody/tr[1]/td/table/tbody/tr/td[2]';
+                const elementoNombre = getElementByXPath(xpathNombre, doc);
+                if (elementoNombre) {
+                    const texto = elementoNombre.textContent.trim();
+                    if (texto && texto.length > 0 && !texto.toLowerCase().includes('jugadores')) {
+                        nombre = texto;
+                    }
                 }
+            } catch (e) {
+                console.log('XPath nombre no funcionó:', e);
             }
             
-            // Si no encontró en títulos, buscar en tablas
+            // MÉTODO 2: XPath específico para el puntaje (el que me pasaste originalmente)
+            // /html/body/table/tbody/tr/td/div/table/tbody/tr/td/table/tbody/tr[3]/td/table/tbody/tr/td[2]/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr/td/div/table/tbody/tr[3]/td/table/tbody/tr[1]/td/table/tbody/tr[3]/td/table/tbody/tr/td[1]/table/tbody/tr[1]/td/table/tbody/tr/td[2]
+            try {
+                const xpathPuntaje = '/html/body/table/tbody/tr/td/div/table/tbody/tr/td/table/tbody/tr[3]/td/table/tbody/tr/td[2]/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr/td/div/table/tbody/tr[3]/td/table/tbody/tr[1]/td/table/tbody/tr[3]/td/table/tbody/tr/td[1]/table/tbody/tr[1]/td/table/tbody/tr/td[2]';
+                const elementoPuntaje = getElementByXPath(xpathPuntaje, doc);
+                if (elementoPuntaje) {
+                    const texto = elementoPuntaje.textContent.trim();
+                    const match = texto.match(/(\d+)/);
+                    if (match) {
+                        const numero = parseInt(match[1]);
+                        if (numero >= 100 && numero <= 3000) {
+                            puntaje = numero;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.log('XPath puntaje no funcionó:', e);
+            }
+            
+            // FALLBACK: Si el XPath del nombre falló, usar método alternativo
             if (!nombre) {
                 const tablas = doc.querySelectorAll('table');
                 for (let tabla of tablas) {
                     const celdas = tabla.querySelectorAll('td, th');
                     for (let celda of celdas) {
                         const texto = celda.textContent.trim();
-                        // Buscar texto que parezca nombre (más de 5 caracteres, con espacios, sin números)
                         if (texto.length > 5 && 
                             texto.length < 50 && 
                             texto.includes(' ') && 
                             !/\d/.test(texto) &&
                             !texto.toLowerCase().includes('apellido') &&
                             !texto.toLowerCase().includes('nombre') &&
-                            !texto.toLowerCase().includes('club')) {
+                            !texto.toLowerCase().includes('club') &&
+                            !texto.toLowerCase().includes('jugadores')) {
                             const textoLower = texto.toLowerCase();
                             if (!textoLower.includes('tenis') && 
                                 !textoLower.includes('mesa') &&
@@ -708,48 +741,30 @@
                 }
             }
             
-            // MÉTODO 2: Buscar el puntaje
-            const tablas = doc.querySelectorAll('table');
-            
-            for (let tabla of tablas) {
-                const celdas = tabla.querySelectorAll('td');
-                
-                for (let celda of celdas) {
-                    const texto = celda.textContent.trim();
-                    const match = texto.match(/^(\d{3,4})$/);
-                    
-                    if (match) {
-                        const numero = parseInt(match[1]);
-                        if (numero >= 100 && numero <= 3000) {
-                            const fila = celda.closest('tr');
-                            if (fila) {
-                                const textoFila = fila.textContent.toLowerCase();
-                                if (textoFila.includes('punto') || textoFila.includes('rating') || 
-                                    textoFila.includes('tmt') || celda.className.includes('puntaje') ||
-                                    (numero > 500 && !textoFila.includes('dni') && !textoFila.includes('tel') && 
-                                     !textoFila.includes('código') && !textoFila.includes('codigo'))) {
-                                    puntaje = numero;
-                                    break;
+            // FALLBACK: Si el XPath del puntaje falló, usar método alternativo
+            if (!puntaje) {
+                const tablas = doc.querySelectorAll('table');
+                for (let tabla of tablas) {
+                    const celdas = tabla.querySelectorAll('td');
+                    for (let celda of celdas) {
+                        const texto = celda.textContent.trim();
+                        const match = texto.match(/^(\d{3,4})$/);
+                        if (match) {
+                            const numero = parseInt(match[1]);
+                            if (numero >= 100 && numero <= 3000) {
+                                const fila = celda.closest('tr');
+                                if (fila) {
+                                    const textoFila = fila.textContent.toLowerCase();
+                                    if (textoFila.includes('punto') || textoFila.includes('rating') || 
+                                        (numero > 500 && !textoFila.includes('dni') && !textoFila.includes('tel'))) {
+                                        puntaje = numero;
+                                        break;
+                                    }
                                 }
                             }
                         }
                     }
-                }
-                if (puntaje) break;
-            }
-            
-            // Método alternativo para puntaje
-            if (!puntaje) {
-                const elementos = doc.querySelectorAll('*');
-                for (let el of elementos) {
-                    const texto = el.textContent;
-                    if (texto.includes('Puntos:') || texto.includes('Puntaje:') || texto.includes('Rating:')) {
-                        const match = texto.match(/(\d{3,4})/);
-                        if (match) {
-                            puntaje = parseInt(match[1]);
-                            break;
-                        }
-                    }
+                    if (puntaje) break;
                 }
             }
             
@@ -757,7 +772,6 @@
             if (!puntaje) {
                 let mejorCandidato = null;
                 let mejorPuntaje = 0;
-                
                 const todosLosNumeros = html.match(/\b(\d{3,4})\b/g);
                 if (todosLosNumeros) {
                     for (let numStr of todosLosNumeros) {
@@ -828,7 +842,7 @@
                 if (datos.puntaje) {
                     puntajeInput.value = datos.puntaje;
                     
-                    if (datos.nombre) {
+                    if (datos.nombre && datos.nombre.length > 0) {
                         mensajeExito.innerHTML = `✅ <strong>¡Hola ${datos.nombre}!</strong><br>Tu puntaje es: <strong>${datos.puntaje} puntos</strong>`;
                     } else {
                         mensajeExito.innerHTML = `✅ Puntaje encontrado: <strong>${datos.puntaje} puntos</strong>`;
@@ -1098,3 +1112,4 @@
     </script>
 </body>
 </html>
+
