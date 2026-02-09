@@ -457,7 +457,7 @@
     <div class="container">
         <div class="header">
             <h1>🏓 Calculadora TMT</h1>
-            <p>Torneo tenis de mesa</p>
+            <p>Tenemos de Mesa - Torneos</p>
         </div>
 
         <div class="content">
@@ -477,7 +477,7 @@
             <div id="screen-inicio" class="screen active">
                 <div class="input-group">
                     <label for="codigo-tmt">Código TMT</label>
-                    <input type="text" id="codigo-tmt" placeholder="Ej: 20000" inputmode="numeric">
+                    <input type="text" id="codigo-tmt" placeholder="Ej: 25504" inputmode="numeric">
                 </div>
                 
                 <button class="btn btn-outline" onclick="buscarPuntaje()">
@@ -659,6 +659,131 @@
             document.getElementById('install-banner').classList.remove('show');
         }
 
+        function extraerDatosDelHTML(html) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            let nombre = null;
+            let puntaje = null;
+            
+            // MÉTODO 1: Buscar el nombre en títulos
+            const titulos = doc.querySelectorAll('h1, h2, h3, title');
+            for (let titulo of titulos) {
+                const texto = titulo.textContent.trim();
+                if (texto && texto.length > 3 && 
+                    !texto.includes('Tenis de Mesa') && 
+                    !texto.includes('TMT') &&
+                    !texto.includes('Ficha') &&
+                    !texto.toLowerCase().includes('jugador')) {
+                    nombre = texto;
+                    break;
+                }
+            }
+            
+            // Si no encontró en títulos, buscar en tablas
+            if (!nombre) {
+                const tablas = doc.querySelectorAll('table');
+                for (let tabla of tablas) {
+                    const celdas = tabla.querySelectorAll('td, th');
+                    for (let celda of celdas) {
+                        const texto = celda.textContent.trim();
+                        // Buscar texto que parezca nombre (más de 5 caracteres, con espacios, sin números)
+                        if (texto.length > 5 && 
+                            texto.length < 50 && 
+                            texto.includes(' ') && 
+                            !/\d/.test(texto) &&
+                            !texto.toLowerCase().includes('apellido') &&
+                            !texto.toLowerCase().includes('nombre') &&
+                            !texto.toLowerCase().includes('club')) {
+                            const textoLower = texto.toLowerCase();
+                            if (!textoLower.includes('tenis') && 
+                                !textoLower.includes('mesa') &&
+                                !textoLower.includes('puntos')) {
+                                nombre = texto;
+                                break;
+                            }
+                        }
+                    }
+                    if (nombre) break;
+                }
+            }
+            
+            // MÉTODO 2: Buscar el puntaje
+            const tablas = doc.querySelectorAll('table');
+            
+            for (let tabla of tablas) {
+                const celdas = tabla.querySelectorAll('td');
+                
+                for (let celda of celdas) {
+                    const texto = celda.textContent.trim();
+                    const match = texto.match(/^(\d{3,4})$/);
+                    
+                    if (match) {
+                        const numero = parseInt(match[1]);
+                        if (numero >= 100 && numero <= 3000) {
+                            const fila = celda.closest('tr');
+                            if (fila) {
+                                const textoFila = fila.textContent.toLowerCase();
+                                if (textoFila.includes('punto') || textoFila.includes('rating') || 
+                                    textoFila.includes('tmt') || celda.className.includes('puntaje') ||
+                                    (numero > 500 && !textoFila.includes('dni') && !textoFila.includes('tel') && 
+                                     !textoFila.includes('código') && !textoFila.includes('codigo'))) {
+                                    puntaje = numero;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                if (puntaje) break;
+            }
+            
+            // Método alternativo para puntaje
+            if (!puntaje) {
+                const elementos = doc.querySelectorAll('*');
+                for (let el of elementos) {
+                    const texto = el.textContent;
+                    if (texto.includes('Puntos:') || texto.includes('Puntaje:') || texto.includes('Rating:')) {
+                        const match = texto.match(/(\d{3,4})/);
+                        if (match) {
+                            puntaje = parseInt(match[1]);
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // Último recurso para puntaje
+            if (!puntaje) {
+                let mejorCandidato = null;
+                let mejorPuntaje = 0;
+                
+                const todosLosNumeros = html.match(/\b(\d{3,4})\b/g);
+                if (todosLosNumeros) {
+                    for (let numStr of todosLosNumeros) {
+                        const num = parseInt(numStr);
+                        if (num >= 500 && num <= 3000 && num > mejorPuntaje) {
+                            if (num < 2000 || num > 2025) {
+                                mejorPuntaje = num;
+                                mejorCandidato = num;
+                            }
+                        }
+                    }
+                }
+                puntaje = mejorCandidato;
+            }
+            
+            // Limpiar nombre
+            if (nombre) {
+                nombre = nombre.replace(/ficha\s+de\s+/i, '').trim();
+                nombre = nombre.split(' ').map(palabra => 
+                    palabra.charAt(0).toUpperCase() + palabra.slice(1).toLowerCase()
+                ).join(' ');
+            }
+            
+            return { nombre, puntaje };
+        }
+
         async function buscarPuntaje() {
             const codigoInput = document.getElementById('codigo-tmt');
             const mensajeError = document.getElementById('mensaje-busqueda');
@@ -677,17 +802,14 @@
             mensajeError.classList.remove('show');
             mensajeExito.classList.remove('show');
             
-            // Mostrar loading
             const btn = event.target;
             const originalText = btn.innerHTML;
             btn.innerHTML = 'Buscando<span class="loading-spinner"></span>';
             btn.disabled = true;
             
             try {
-                // Usar un proxy CORS si es necesario, o directo si el sitio lo permite
                 const url = `https://www.tenisdemesaparatodos.com/jugadores_ficha.asp?codigo=${codigo}`;
                 
-                // Intentar con fetch directo primero
                 const response = await fetch(url, {
                     method: 'GET',
                     headers: {
@@ -701,15 +823,18 @@
                 
                 const html = await response.text();
                 
-                // Parsear el HTML para encontrar el puntaje
-                const puntaje = extraerPuntajeDelHTML(html);
+                const datos = extraerDatosDelHTML(html);
                 
-                if (puntaje) {
-                    puntajeInput.value = puntaje;
-                    mensajeExito.textContent = `✅ Puntaje encontrado: ${puntaje} puntos`;
+                if (datos.puntaje) {
+                    puntajeInput.value = datos.puntaje;
+                    
+                    if (datos.nombre) {
+                        mensajeExito.innerHTML = `✅ <strong>¡Hola ${datos.nombre}!</strong><br>Tu puntaje es: <strong>${datos.puntaje} puntos</strong>`;
+                    } else {
+                        mensajeExito.innerHTML = `✅ Puntaje encontrado: <strong>${datos.puntaje} puntos</strong>`;
+                    }
                     mensajeExito.classList.add('show');
                     
-                    // Scroll al botón de comenzar
                     setTimeout(() => {
                         document.querySelector('.btn-primary').scrollIntoView({ behavior: 'smooth' });
                     }, 100);
@@ -725,77 +850,6 @@
                 btn.innerHTML = originalText;
                 btn.disabled = false;
             }
-        }
-
-        function extraerPuntajeDelHTML(html) {
-            // Crear un DOM parser para analizar el HTML
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            
-            // Método 1: Buscar por XPath aproximado (tablas anidadas)
-            // El puntaje suele estar en una tabla específica, buscamos patrones
-            
-            // Buscar todas las tablas
-            const tablas = doc.querySelectorAll('table');
-            
-            for (let tabla of tablas) {
-                // Buscar celdas que contengan números grandes (puntajes típicos 1000-3000)
-                const celdas = tabla.querySelectorAll('td');
-                
-                for (let celda of celdas) {
-                    const texto = celda.textContent.trim();
-                    // Patrón: número entre 100 y 3000 (rango típico de puntajes TMT)
-                    const match = texto.match(/^(\d{3,4})$/);
-                    
-                    if (match) {
-                        const numero = parseInt(match[1]);
-                        if (numero >= 100 && numero <= 3000) {
-                            // Verificar que sea el puntaje actual y no otra cosa
-                            // Buscando contexto: que esté cerca de palabras como "puntos", "rating", etc.
-                            const fila = celda.closest('tr');
-                            if (fila) {
-                                const textoFila = fila.textContent.toLowerCase();
-                                if (textoFila.includes('punto') || textoFila.includes('rating') || 
-                                    textoFila.includes('tmt') || celda.className.includes('puntaje') ||
-                                    // Si no hay contexto, verificar que sea un número prominente
-                                    (numero > 500 && !textoFila.includes('dni') && !textoFila.includes('tel'))) {
-                                    return numero;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // Método 2: Buscar por texto "Puntos:" o similar
-            const elementos = doc.querySelectorAll('*');
-            for (let el of elementos) {
-                const texto = el.textContent;
-                if (texto.includes('Puntos:') || texto.includes('Puntaje:') || texto.includes('Rating:')) {
-                    const match = texto.match(/(\d{3,4})/);
-                    if (match) return parseInt(match[1]);
-                }
-            }
-            
-            // Método 3: Buscar el número más grande que parezca un puntaje (entre 500-3000)
-            let mejorCandidato = null;
-            let mejorPuntaje = 0;
-            
-            const todosLosNumeros = html.match(/\b(\d{3,4})\b/g);
-            if (todosLosNumeros) {
-                for (let numStr of todosLosNumeros) {
-                    const num = parseInt(numStr);
-                    if (num >= 500 && num <= 3000 && num > mejorPuntaje) {
-                        // Evitar años (2010-2024) y otros números comunes
-                        if (num < 2000 || num > 2025) {
-                            mejorPuntaje = num;
-                            mejorCandidato = num;
-                        }
-                    }
-                }
-            }
-            
-            return mejorCandidato;
         }
 
         function iniciarTorneo() {
