@@ -336,7 +336,7 @@
     <div class="container">
         <div class="header">
             <h1>🏓 Calculadora TMT</h1>
-            <p>Tenemos de Mesa - Torneos</p>
+            <p>Tenis de mesa para Todos</p>
         </div>
 
         <div class="content">
@@ -432,16 +432,16 @@
                 <div class="coeficiente-box">
                     <div style="font-weight: 600; margin-bottom: 5px;">⚡ Coeficiente 1.5x</div>
                     <div style="font-size: 0.9rem; color: #666; margin-bottom: 10px;">
-                        ¿Aplicar coeficiente especial de 1.5 a cada partido?
+                        ¿Aplicar coeficiente 1.5 solo a los puntos ganados?
                     </div>
                     <div class="checkbox-wrapper">
                         <input type="checkbox" id="check-coeficiente" onchange="aplicarCoeficiente()">
                         <label for="check-coeficiente" style="margin: 0; cursor: pointer;">
-                            Aplicar multiplicador 1.5 (redondea hacia arriba)
+                            Aplicar 1.5 a victorias (redondea hacia arriba)
                         </label>
                     </div>
                     <div id="coeficiente-aviso" style="margin-top: 10px; font-size: 0.85rem; color: #856404; display: none;">
-                        Cada partido se multiplica por 1.5 y se redondea hacia arriba
+                        Solo las victorias se multiplican por 1.5
                     </div>
                 </div>
 
@@ -530,13 +530,13 @@
             return puntos;
         }
 
-        // Función para aplicar coeficiente 1.5 con redondeo hacia arriba
+        // Función para aplicar coeficiente 1.5 SOLO a puntos positivos (victorias)
         function aplicarCoeficienteAPartido(puntos) {
-            if (!usandoCoeficiente) return puntos;
+            // Solo aplica a puntos ganados (positivos), no a perdidos (negativos)
+            if (!usandoCoeficiente || puntos <= 0) return puntos;
             
             // Multiplicar por 1.5 y redondear hacia arriba (ceiling)
-            const resultado = puntos * 1.5;
-            return Math.ceil(resultado);
+            return Math.ceil(puntos * 1.5);
         }
 
         function agregarPartido(resultado) {
@@ -636,14 +636,14 @@
             let perdidosMostrar = totalPerdidosBase;
             
             if (usandoCoeficiente) {
-                variacionMostrar = calcularTotalConCoeficiente();
-                // Para ganados y perdidos con coeficiente, calculamos individualmente
+                // Solo aplicar coeficiente a victorias (puntos positivos)
                 ganadosMostrar = partidos
                     .filter(p => p.puntosBase > 0)
                     .reduce((sum, p) => sum + aplicarCoeficienteAPartido(p.puntosBase), 0);
-                perdidosMostrar = partidos
-                    .filter(p => p.puntosBase < 0)
-                    .reduce((sum, p) => sum + aplicarCoeficienteAPartido(p.puntosBase), 0);
+                // Las derrotas quedan igual
+                perdidosMostrar = totalPerdidosBase;
+                // Total es la suma de ganados con coeficiente + perdidos sin coeficiente
+                variacionMostrar = ganadosMostrar + perdidosMostrar;
             }
             
             document.getElementById('variacion-total').textContent = (variacionMostrar > 0 ? '+' : '') + variacionMostrar;
@@ -670,9 +670,9 @@
                 item.className = 'partido-item';
                 item.style.background = '#f8f9fa';
                 
-                // Si hay coeficiente, mostramos el cálculo
+                // Si hay coeficiente y es victoria, mostramos el cálculo
                 let detalleExtra = '';
-                if (usandoCoeficiente && p.puntosBase !== puntosMostrar) {
+                if (usandoCoeficiente && p.puntosBase > 0 && p.puntosBase !== puntosMostrar) {
                     detalleExtra = `<div style="font-size: 0.75rem; color: #999; margin-top: 2px;">${signo}${p.puntosBase} × 1.5 = ${signoMostrar}${puntosMostrar}</div>`;
                 }
                 
